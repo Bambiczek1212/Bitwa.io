@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mob Control 3D: World Raid</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Three.js 3D Engine Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #070a12;
+            color: #ffffff;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .neon-glow-blue {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5), inset 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+        .btn-game {
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-game:active {
+            transform: scale(0.95);
+        }
+        /* Custom scrollbar for modals */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="relative h-screen w-screen flex items-center justify-center overflow-hidden select-none">
+
+    <!-- 3D GAME CANVAS CONTAINER -->
+    <div id="canvas-container" class="relative w-full h-full bg-slate-950 overflow-hidden">
+        <canvas id="gameCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing touch-none"></canvas>
+
+        <!-- IN-GAME HUD OVERLAY -->
+        <div id="hud-overlay" class="absolute top-0 left-0 w-full p-4 pointer-events-none hidden flex-col justify-between h-full z-20">
+            <!-- Top Header: Level Progress & Coins -->
+            <div class="w-full max-w-md mx-auto flex flex-col gap-2 pointer-events-auto">
+                <div class="flex items-center justify-between glass-card p-3 rounded-2xl shadow-xl border border-blue-500/30">
+                    <div class="flex items-center gap-2">
+                        <span id="hud-level-tag" class="font-orbitron font-extrabold text-xs sm:text-sm text-blue-400 bg-blue-500/20 px-3 py-1 rounded-xl border border-blue-500/40">
+                            POZIOM 1
+                        </span>
+                        <span id="hud-level-name" class="font-bold text-xs text-slate-300 truncate max-w-[130px]">Zielona Dolina</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1.5 font-orbitron font-bold text-amber-400 text-sm">
+                            <i class="fa-solid fa-coins text-amber-400"></i>
+                            <span id="hud-coins">0</span>
+                        </div>
+                        <button id="btn-pause-game" class="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white">
+                            <i class="fa-solid fa-pause text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Castle HP Bar -->
+                <div class="w-full glass-card p-2.5 rounded-2xl flex flex-col gap-1 border border-rose-500/30 shadow-lg">
+                    <div class="flex justify-between text-xs font-bold font-orbitron text-rose-400 px-1">
+                        <span><i class="fa-solid fa-chess-rook mr-1"></i> CYTADELA WROGA</span>
+                        <span id="hud-castle-hp-text">100 / 100 HP</span>
+                    </div>
+                    <div class="w-full h-3.5 bg-slate-900 rounded-full border border-rose-600/50 overflow-hidden p-0.5">
+                        <div id="hud-castle-hp-bar" class="h-full bg-gradient-to-r from-rose-500 via-red-500 to-amber-500 rounded-full transition-all duration-150" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Touch Instruction -->
+            <div class="text-center pb-3 text-xs font-semibold text-slate-300 tracking-wider animate-pulse drop-shadow-md">
+                <i class="fa-solid fa-hand-pointer mr-1"></i> PRZECIĄGNIJ PALCEM / MYSZKĄ LUB UŻYJ [A / D]
+            </div>
+        </div>
+
+        <!-- MAIN MENU OVERLAY -->
+        <div id="main-menu" class="absolute inset-0 flex items-center justify-center glass-card z-40 p-4 overflow-y-auto">
+            <div class="max-w-md w-full bg-slate-900/95 border-2 border-blue-500/40 rounded-3xl p-6 text-center shadow-2xl relative overflow-hidden my-auto">
+                
+                <!-- CYBER KONTO BANNER -->
+                <div id="cyber-account-bar" class="mb-5 p-3 bg-slate-950/90 rounded-2xl border border-blue-500/30 flex items-center justify-between gap-2 shadow-inner">
+                    <div class="flex items-center gap-3 overflow-hidden text-left">
+                        <div id="account-avatar-badge" class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg shrink-0 shadow-md">
+                            <i id="account-avatar-icon" class="fa-solid fa-user-shield"></i>
+                        </div>
+                        <div class="truncate">
+                            <div id="account-username" class="font-orbitron font-bold text-sm text-blue-400 truncate">Gość Cyber Konto</div>
+                            <div id="account-status-badge" class="text-[10px] text-slate-400 flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-amber-400 inline-block animate-pulse"></span>
+                                <span>Konto Lokalne (Niezalogowany)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="btn-open-account-modal" class="btn-game px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-orbitron font-bold text-xs rounded-xl shadow-md shrink-0">
+                        <i class="fa-solid fa-right-to-bracket mr-1"></i> <span id="btn-account-text">CYBER KONTO</span>
+                    </button>
+                </div>
+
+                <!-- Title & Badge -->
+                <div class="inline-block px-3.5 py-1 bg-blue-500/10 border border-blue-400/30 rounded-full text-blue-400 text-[11px] font-bold font-orbitron mb-2 tracking-widest">
+                    #1 MOBILE 3D ARCADE HIT (1000 POZIOMÓW)
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-black font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-teal-300 to-indigo-400 mb-1 tracking-wider">
+                    MOB CONTROL 3D
+                </h1>
+                <p class="text-slate-400 text-xs mb-5">Przejmij bramki mnożące, poprowadź armię 3D i zniszcz cytadelę!</p>
+
+                <!-- Level & Coins Overview -->
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    <div class="bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+                        <div class="text-[11px] text-slate-400 font-semibold mb-0.5">ODBLOKOWANY POZIOM</div>
+                        <div id="menu-max-level" class="font-orbitron text-lg sm:text-xl font-black text-blue-400">POZIOM 1</div>
+                    </div>
+                    <div class="bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+                        <div class="text-[11px] text-slate-400 font-semibold mb-0.5">CYBER MONETY</div>
+                        <div id="menu-total-coins" class="font-orbitron text-lg sm:text-xl font-black text-amber-400 flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-coins text-sm"></i> 0
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Action Buttons -->
+                <div class="space-y-2.5">
+                    <button id="btn-play-level" class="btn-game w-full py-4 rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 text-white font-orbitron font-extrabold text-base sm:text-lg shadow-xl flex items-center justify-center gap-2 neon-glow-blue">
+                        <i class="fa-solid fa-play"></i> GRAJ (POZIOM <span id="btn-play-lvl-num">1</span>)
+                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btn-select-level" class="btn-game py-3 rounded-2xl bg-slate-800 border border-slate-700 text-blue-300 font-orbitron font-bold text-xs hover:bg-slate-700 flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-map-location-dot"></i> POZIOMY (1000)
+                        </button>
+                        <button id="btn-upgrades" class="btn-game py-3 rounded-2xl bg-slate-800 border border-slate-700 text-amber-300 font-orbitron font-bold text-xs hover:bg-slate-700 flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-bolt"></i> ULEPSZENIA
+                        </button>
+                    </div>
+                    <button id="btn-leaderboard" class="btn-game w-full py-3 rounded-2xl bg-slate-950 border border-amber-500/40 text-amber-400 font-orbitron font-bold text-xs hover:bg-slate-800 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-trophy"></i> RANKING CYBER KONT
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LEVEL SELECT MODAL -->
+        <div id="level-modal" class="absolute inset-0 flex items-center justify-center glass-card z-50 p-4 hidden">
+            <div class="max-w-md w-full bg-slate-900 border-2 border-blue-500/50 rounded-3xl p-5 shadow-2xl relative max-h-[85vh] flex flex-col">
+                <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-800 shrink-0">
+                    <h2 class="font-orbitron text-base sm:text-lg font-bold text-blue-400 flex items-center gap-2">
+                        <i class="fa-solid fa-map"></i> WYBIERZ POZIOM (1 - 1000)
+                    </h2>
+                    <button id="btn-close-level-modal" class="text-slate-400 hover:text-white text-xl p-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Page / Search Controls -->
+                <div class="flex items-center justify-between gap-2 mb-3 bg-slate-950 p-2 rounded-xl border border-slate-800 shrink-0">
+                    <button id="btn-lvl-prev-page" class="px-2.5 py-1 bg-slate-800 text-xs font-bold rounded-lg text-slate-300 hover:text-white">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <div class="text-xs font-orbitron text-slate-300 flex items-center gap-1">
+                        <span>SKOK DO:</span>
+                        <input type="number" id="input-jump-level" min="1" max="1000" placeholder="1" class="w-16 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs text-blue-400 font-bold focus:outline-none">
+                        <button id="btn-jump-level" class="bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] font-bold">GO</button>
+                    </div>
+                    <button id="btn-lvl-next-page" class="px-2.5 py-1 bg-slate-800 text-xs font-bold rounded-lg text-slate-300 hover:text-white">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div id="level-list" class="space-y-2.5 overflow-y-auto flex-1 pr-1">
+                    <!-- Dynamic Levels Grid -->
+                </div>
+            </div>
+        </div>
+
+        <!-- UPGRADES SHOP MODAL -->
+        <div id="upgrades-modal" class="absolute inset-0 flex items-center justify-center glass-card z-50 p-4 hidden">
+            <div class="max-w-md w-full bg-slate-900 border-2 border-amber-500/50 rounded-3xl p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+                <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800 shrink-0">
+                    <h2 class="font-orbitron text-lg font-bold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-bolt"></i> ARSENAL ULEPSZEŃ
+                    </h2>
+                    <button id="btn-close-upgrades-modal" class="text-slate-400 hover:text-white text-xl p-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="text-sm text-slate-300 mb-3 flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800 shrink-0">
+                    <span>Monety Cyber Konto:</span>
+                    <span id="shop-coins-display" class="font-orbitron font-bold text-amber-400 text-base flex items-center gap-1">
+                        <i class="fa-solid fa-coins"></i> 0
+                    </span>
+                </div>
+                <div id="upgrades-list" class="space-y-3 overflow-y-auto flex-1 pr-1">
+                    <!-- Dynamic Upgrade Cards -->
+                </div>
+            </div>
+        </div>
+
+        <!-- CYBER KONTO AUTHENTICATION MODAL -->
+        <div id="cyber-auth-modal" class="absolute inset-0 flex items-center justify-center glass-card z-50 p-4 hidden overflow-y-auto">
+            <div class="max-w-md w-full bg-slate-900 border-2 border-blue-500/60 rounded-3xl p-6 shadow-2xl relative my-auto">
+                <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <h2 class="font-orbitron text-lg font-bold text-blue-400">PORTAL CYBER KONTO</h2>
+                    </div>
+                    <button id="btn-close-auth-modal" class="text-slate-400 hover:text-white text-xl p-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Tabs: Logowanie / Rejestracja -->
+                <div class="flex bg-slate-950 p-1 rounded-xl mb-4 border border-slate-800">
+                    <button id="tab-login" class="flex-1 py-2 text-xs font-orbitron font-bold rounded-lg transition-all bg-blue-500 text-slate-950 shadow-md">
+                        LOGOWANIE
+                    </button>
+                    <button id="tab-register" class="flex-1 py-2 text-xs font-orbitron font-bold rounded-lg transition-all text-slate-400 hover:text-white">
+                        STWÓRZ CYBER KONTO
+                    </button>
+                </div>
+
+                <div id="auth-status-msg" class="hidden mb-3 p-2.5 rounded-xl text-xs font-semibold text-center border"></div>
+
+                <!-- FORM: LOGIN -->
+                <form id="form-login" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">CYBER NICK</label>
+                        <input type="text" id="login-username" required placeholder="Wpisz Twój Cyber Nick" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">HASŁO</label>
+                        <input type="password" id="login-password" required placeholder="Wpisz hasło" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <button type="submit" class="btn-game w-full py-3.5 mt-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-orbitron font-bold text-sm shadow-lg">
+                        ZALOGUJ SIĘ DO CYBER KONTA
+                    </button>
+                </form>
+
+                <!-- FORM: REGISTER -->
+                <form id="form-register" class="space-y-3 hidden">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">WYBIERZ UNIKALNY CYBER NICK</label>
+                        <input type="text" id="reg-username" maxlength="16" required placeholder="np. MasterClash_3D" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-blue-500">
+                        <div id="nick-check-indicator" class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-info"></i> System sprawdzi dostępność w chmurze
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">HASŁO KONTA</label>
+                        <input type="password" id="reg-password" minlength="4" required placeholder="Minimum 4 znaki" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">AWATAR CYBER KONTA</label>
+                        <div class="grid grid-cols-5 gap-2" id="avatar-selector">
+                            <button type="button" data-icon="fa-user-ninja" data-color="#3b82f6" class="avatar-option p-2 bg-slate-950 border-2 border-blue-500 rounded-xl text-blue-400 text-lg flex items-center justify-center">
+                                <i class="fa-solid fa-user-ninja"></i>
+                            </button>
+                            <button type="button" data-icon="fa-shield-halved" data-color="#10b981" class="avatar-option p-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 text-lg flex items-center justify-center">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </button>
+                            <button type="button" data-icon="fa-crown" data-color="#f59e0b" class="avatar-option p-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 text-lg flex items-center justify-center">
+                                <i class="fa-solid fa-crown"></i>
+                            </button>
+                            <button type="button" data-icon="fa-robot" data-color="#ec4899" class="avatar-option p-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 text-lg flex items-center justify-center">
+                                <i class="fa-solid fa-robot"></i>
+                            </button>
+                            <button type="button" data-icon="fa-bolt" data-color="#8b5cf6" class="avatar-option p-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 text-lg flex items-center justify-center">
+                                <i class="fa-solid fa-bolt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-game w-full py-3.5 mt-2 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 text-slate-950 font-orbitron font-extrabold text-sm shadow-lg">
+                        UTWÓRZ CYBER KONTO (+100 BONUS)
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- PROFILE & LEADERBOARD DASHBOARD MODAL -->
+        <div id="cyber-profile-modal" class="absolute inset-0 flex items-center justify-center glass-card z-50 p-4 hidden overflow-y-auto">
+            <div class="max-w-md w-full bg-slate-900 border-2 border-blue-500/60 rounded-3xl p-6 shadow-2xl relative my-auto max-h-[90vh] flex flex-col">
+                <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800 shrink-0">
+                    <h2 class="font-orbitron text-lg font-bold text-blue-400 flex items-center gap-2">
+                        <i class="fa-solid fa-trophy"></i> RANKING GRACZY CYBER KONTO
+                    </h2>
+                    <button id="btn-close-profile-modal" class="text-slate-400 hover:text-white text-xl p-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Active User Status Card -->
+                <div id="profile-card" class="bg-slate-950 p-3.5 rounded-2xl border border-blue-500/40 mb-4 flex items-center gap-3 shrink-0">
+                    <div id="profile-card-avatar" class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl shrink-0 shadow-lg">
+                        <i id="profile-card-icon" class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <div class="flex-1 overflow-hidden">
+                        <div id="profile-card-username" class="font-orbitron font-bold text-base text-white truncate">CyberUser</div>
+                        <div id="profile-card-status" class="text-xs text-blue-400 font-semibold"><i class="fa-solid fa-check-circle"></i> Połączono z Chmurą</div>
+                    </div>
+                    <button id="btn-logout" class="btn-game px-3 py-1.5 bg-rose-500/20 border border-rose-500/40 text-rose-400 rounded-xl text-xs font-orbitron font-bold shrink-0">
+                        WYLOGUJ
+                    </button>
+                </div>
+
+                <div class="flex-1 flex flex-col min-h-0">
+                    <div class="text-xs font-orbitron font-bold text-amber-400 mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-crown"></i> GLOBALNA LISTA LIDERÓW
+                    </div>
+                    <div id="leaderboard-list" class="space-y-2 overflow-y-auto flex-1 pr-1 min-h-[160px]">
+                        <!-- Dynamic Leaderboard Items -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VICTORY / GAME OVER MODAL -->
+        <div id="result-modal" class="absolute inset-0 flex items-center justify-center glass-card z-50 p-6 hidden">
+            <div class="max-w-md w-full bg-slate-900 border-2 rounded-3xl p-6 text-center shadow-2xl relative my-auto" id="result-card-border">
+                <div id="result-badge" class="inline-block px-4 py-1.5 rounded-full font-orbitron font-black text-slate-950 text-sm tracking-widest mb-3 animate-bounce">
+                    ZWYCIĘSTWO!
+                </div>
+                <h2 id="result-title" class="text-2xl sm:text-3xl font-black font-orbitron text-white mb-2">CYTADELA ZNISZCZONA!</h2>
+                <p id="result-subtitle" class="text-xs text-slate-400 mb-5">Twoja armia opanowała całą mapę!</p>
+
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                        <div class="text-xs text-slate-400 mb-0.5">ZAROBIONE MONETY</div>
+                        <div id="result-coins" class="font-orbitron text-xl font-bold text-amber-400 flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-coins text-sm"></i> +50
+                        </div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                        <div class="text-xs text-slate-400 mb-0.5">JEDNOSTKI ZNISZCZONE</div>
+                        <div id="result-mobs" class="font-orbitron text-xl font-bold text-blue-400">128</div>
+                    </div>
+                </div>
+
+                <button id="btn-result-action" class="btn-game w-full py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-orbitron font-extrabold text-base shadow-lg">
+                    NASTĘPNY POZIOM
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mob-control-3d-app';
+        let db = null;
+        let auth = null;
+
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            }
+        } catch (e) {
+            console.warn("Firebase Fallback mode active.");
+        }
+
+        window.CyberKontoCloud = {
+            db,
+            appId,
+
+            async checkNickExists(username) {
+                if (!db) return false;
+                try {
+                    const docId = username.trim().toLowerCase();
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'cyber_accounts', docId);
+                    const snap = await getDoc(docRef);
+                    return snap.exists();
+                } catch (err) {
+                    return false;
+                }
+            },
+
+            async registerCyberAccount(username, password, avatarData) {
+                const docId = username.trim().toLowerCase();
+                const accountData = {
+                    username: username.trim(),
+                    password: password,
+                    avatarIcon: avatarData.icon || 'fa-user-ninja',
+                    avatarColor: avatarData.color || '#3b82f6',
+                    createdTime: new Date().toISOString(),
+                    coins: 100,
+                    maxLevel: 1,
+                    upgrades: { fireRate: 0, mobSpeed: 0, mobPower: 0 }
+                };
+
+                if (db) {
+                    try {
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'cyber_accounts', docId);
+                        await setDoc(docRef, accountData);
+                    } catch (e) {
+                        console.error("Cloud register error:", e);
+                    }
+                }
+                
+                localStorage.setItem('cyber_3d_active_acc', JSON.stringify(accountData));
+                return accountData;
+            },
+
+            async loginCyberAccount(username, password) {
+                const docId = username.trim().toLowerCase();
+                if (db) {
+                    try {
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'cyber_accounts', docId);
+                        const snap = await getDoc(docRef);
+                        if (!snap.exists()) {
+                            return { success: false, reason: 'Konto o podanym nicku nie istnieje!' };
+                        }
+                        const data = snap.data();
+                        if (data.password !== password) {
+                            return { success: false, reason: 'Nieprawidłowe hasło!' };
+                        }
+                        localStorage.setItem('cyber_3d_active_acc', JSON.stringify(data));
+                        return { success: true, account: data };
+                    } catch (e) {
+                        return { success: false, reason: 'Błąd połączenia z serwerem Cyber Konto.' };
+                    }
+                } else {
+                    const localAcc = JSON.parse(localStorage.getItem('cyber_3d_active_acc') || 'null');
+                    if (localAcc && localAcc.username.toLowerCase() === docId) {
+                        return { success: true, account: localAcc };
+                    }
+                    return { success: false, reason: 'Tryb offline: brak konta.' };
+                }
+            },
+
+            async syncProgress(account) {
+                if (!account) return;
+                localStorage.setItem('cyber_3d_active_acc', JSON.stringify(account));
+
+                if (db) {
+                    try {
+                        const docId = account.username.trim().toLowerCase();
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'cyber_accounts', docId);
+                        await updateDoc(docRef, {
+                            coins: account.coins,
+                            maxLevel: account.maxLevel,
+                            upgrades: account.upgrades
+                        });
+                    } catch (e) {
+                        console.error("Sync error:", e);
+                    }
+                }
+            },
+
+            async fetchLeaderboard() {
+                if (!db) return [];
+                try {
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'cyber_accounts');
+                    const snap = await getDocs(colRef);
+                    const list = [];
+                    snap.forEach(docSnap => list.push(docSnap.data()));
+                    list.sort((a, b) => (b.maxLevel || 1) - (a.maxLevel || 1) || (b.coins || 0) - (a.coins || 0));
+                    return list.slice(0, 10);
+                } catch (e) {
+                    return [];
+                }
+            }
+        };
+
+        if (window.initCyberKontoUI) window.initCyberKontoUI();
+    </script>
+
+    <script>
+        class SoundEngine {
+            constructor() { this.ctx = null; }
+            init() {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            playShoot() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.05);
+            }
+            playGateChime() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.06); // E5
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+            }
+            playClash() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.04);
+                gain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.04);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.04);
+            }
+            playVictory() {
+                if (!this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.08);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime + i * 0.08);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + i * 0.08 + 0.2);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + i * 0.08);
+                    osc.stop(this.ctx.currentTime + i * 0.08 + 0.2);
+                });
+            }
+        }
+        const sounds = new SoundEngine();
+
+        // GAME STATE & SAVING
+        let cyberAccount = JSON.parse(localStorage.getItem('cyber_3d_active_acc') || 'null');
+        
+        const state = {
+            maxLevel: cyberAccount ? (cyberAccount.maxLevel || 1) : parseInt(localStorage.getItem('cyber_3d_max_lvl') || '1'),
+            coins: cyberAccount ? (cyberAccount.coins || 0) : parseInt(localStorage.getItem('cyber_3d_coins') || '0'),
+            upgrades: cyberAccount ? (cyberAccount.upgrades || { fireRate: 0, mobSpeed: 0, mobPower: 0 }) : JSON.parse(localStorage.getItem('cyber_3d_upgrades') || '{"fireRate":0,"mobSpeed":0,"mobPower":0}')
+        };
+
+        function saveState() {
+            localStorage.setItem('cyber_3d_max_lvl', state.maxLevel.toString());
+            localStorage.setItem('cyber_3d_coins', state.coins.toString());
+            localStorage.setItem('cyber_3d_upgrades', JSON.stringify(state.upgrades));
+
+            if (cyberAccount && window.CyberKontoCloud) {
+                cyberAccount.coins = state.coins;
+                cyberAccount.maxLevel = state.maxLevel;
+                cyberAccount.upgrades = state.upgrades;
+                window.CyberKontoCloud.syncProgress(cyberAccount);
+            }
+        }
+
+        // 5 BIOMES SYSTEM FOR 1000 LEVELS
+        const biomesDef = [
+            { id: 0, name: 'Zielona Dolina', color: 0x22c55e, trackColor: 0x15803d, skyTop: 0x0284c7, skyBottom: 0xbae6fd, fogColor: 0x93c5fd, propType: 'trees' },
+            { id: 1, name: 'Pustynne Wydmy', color: 0xeab308, trackColor: 0xca8a04, skyTop: 0x854d0e, skyBottom: 0xfef08a, fogColor: 0xfef08a, propType: 'cacti' },
+            { id: 2, name: 'Lodowa Kraina', color: 0x06b6d4, trackColor: 0x0891b2, skyTop: 0x164e63, skyBottom: 0xe0f2fe, fogColor: 0xcff4fc, propType: 'ice' },
+            { id: 3, name: 'Wulkaniczny Most', color: 0xef4444, trackColor: 0xb91c1c, skyTop: 0x450a0a, skyBottom: 0xfca5a5, fogColor: 0xfca5a5, propType: 'lava' },
+            { id: 4, name: 'Cyber Cytadela', color: 0xa855f7, trackColor: 0x7e22ce, skyTop: 0x3b0764, skyBottom: 0xe9d5ff, fogColor: 0xe9d5ff, propType: 'cyber' }
+        ];
+
+        function getLevelConfig(num) {
+            const biomeIndex = Math.floor((num - 1) / 5) % 5;
+            const biome = biomesDef[biomeIndex];
+            
+            // Castle HP scales smoothly with level number
+            const castleHp = 100 + num * 30;
+            // Spawner frequency speeds up with level
+            const spawnRate = Math.max(20, 100 - Math.floor(num * 0.15));
+
+            // Generate gates along the lane (-20 to -100)
+            const gateCount = Math.min(5, 2 + Math.floor((num % 10) / 2));
+            const gates = [];
+            const zStep = 80 / gateCount;
+
+            for (let i = 0; i < gateCount; i++) {
+                const z = -20 - (i * zStep);
+                
+                // Deterministic pseudo-random math modifiers for level reproducibility
+                const seed = num * 17 + i * 31;
+                const typeLeft = (seed % 3 === 0) ? '+' : 'x';
+                const typeRight = (seed % 2 === 0) ? 'x' : '+';
+                
+                const valLeft = typeLeft === 'x' ? (2 + (seed % 3)) : (5 + (seed % 15));
+                const valRight = typeRight === 'x' ? (2 + ((seed + 1) % 4)) : (5 + ((seed + 2) % 15));
+
+                gates.push({
+                    z: z,
+                    left: { type: typeLeft, val: valLeft, text: `${typeLeft}${valLeft}` },
+                    right: { type: typeRight, val: valRight, text: `${typeRight}${valRight}` }
+                });
+            }
+
+            return {
+                id: num,
+                name: `${biome.name} - Etap ${Math.ceil(num / 5)}`,
+                biome: biome,
+                castleHp: castleHp,
+                spawnRate: spawnRate,
+                gates: gates
+            };
+        }
+
+        // THREE.JS 3D WORLD VARIABLES
+        let scene, camera, renderer, clock;
+        let cannonMesh, castleGroup, trackMesh, skyDomeMesh;
+        let envPropsGroup, cloudsGroup;
+
+        let activeLevel = getLevelConfig(1);
+        let isPlaying = false;
+        let isGameOver = false;
+
+        let blueMobs = [];
+        let redMobs = [];
+        let gateMeshes = [];
+
+        let cannonX = 0;
+        let cannonTargetX = 0;
+        let currentCastleHp = 100;
+        let mobsKilled = 0;
+        let coinsEarnedInRun = 0;
+
+        let shootTimer = 0;
+        let enemySpawnTimer = 0;
+
+        function init3DScene() {
+            const container = document.getElementById('canvas-container');
+            clock = new THREE.Clock();
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(activeLevel.biome.skyTop);
+            scene.fog = new THREE.FogExp2(activeLevel.biome.fogColor, 0.005);
+
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
+            camera.position.set(0, 18, 22);
+            camera.lookAt(0, 0, -30);
+
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            sunLight.position.set(30, 60, 20);
+            sunLight.castShadow = true;
+            scene.add(sunLight);
+
+            // Groups
+            envPropsGroup = new THREE.Group();
+            scene.add(envPropsGroup);
+
+            cloudsGroup = new THREE.Group();
+            scene.add(cloudsGroup);
+
+            buildSkyDome();
+            buildCannon();
+            setupTouchControls();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function buildSkyDome() {
+            if (skyDomeMesh) scene.remove(skyDomeMesh);
+
+            const skyGeo = new THREE.SphereGeometry(200, 32, 16);
+            const skyMat = new THREE.MeshBasicMaterial({ color: activeLevel.biome.skyTop, side: THREE.BackSide });
+            skyDomeMesh = new THREE.Mesh(skyGeo, skyMat);
+            scene.add(skyDomeMesh);
+
+            // Procedural Drifting Clouds
+            cloudsGroup.clear();
+            for (let i = 0; i < 12; i++) {
+                const cloud = create3DCloud();
+                cloud.position.set(
+                    (Math.random() - 0.5) * 160,
+                    25 + Math.random() * 20,
+                    -Math.random() * 160
+                );
+                cloudsGroup.add(cloud);
+            }
+        }
+
+        function create3DCloud() {
+            const cloud = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true });
+
+            for (let i = 0; i < 5; i++) {
+                const geo = new THREE.DodecahedronGeometry(3 + Math.random() * 3);
+                const part = new THREE.Mesh(geo, mat);
+                part.position.set((i - 2) * 2.5, Math.random() * 1.5, Math.random() * 2);
+                cloud.add(part);
+            }
+            return cloud;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // CREATING DETAILED STYLIZED 3D RUNNERS (BLUE & RED MOBS)
+        function createCharacterMesh(type) {
+            const isBlue = type === 'blue';
+            const group = new THREE.Group();
+
+            const primaryColor = isBlue ? 0x3b82f6 : 0xef4444;
+            const darkColor = isBlue ? 0x1d4ed8 : 0x991b1b;
+            const visorColor = 0x38bdf8;
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: primaryColor, roughness: 0.3, metalness: 0.2 });
+            const armorMat = new THREE.MeshStandardMaterial({ color: darkColor, roughness: 0.4 });
+            const visorMat = new THREE.MeshStandardMaterial({ color: visorColor, emissive: visorColor, emissiveIntensity: 0.5 });
+
+            // Torso / Chest Armor
+            const torsoGeo = new THREE.CylinderGeometry(0.3, 0.25, 0.65, 8);
+            const torso = new THREE.Mesh(torsoGeo, bodyMat);
+            torso.position.y = 0.55;
+            group.add(torso);
+
+            // Head & Helmet
+            const headGeo = new THREE.SphereGeometry(0.25, 8, 8);
+            const head = new THREE.Mesh(headGeo, armorMat);
+            head.position.y = 1.0;
+            group.add(head);
+
+            // Cyber Visor
+            const visorGeo = new THREE.BoxGeometry(0.3, 0.1, 0.15);
+            const visor = new THREE.Mesh(visorGeo, visorMat);
+            visor.position.set(0, 1.02, -0.15);
+            group.add(visor);
+
+            // Arms
+            const armGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.4, 6);
+            
+            const leftArm = new THREE.Mesh(armGeo, bodyMat);
+            leftArm.position.set(-0.35, 0.65, 0);
+            leftArm.name = 'leftArm';
+            group.add(leftArm);
+
+            const rightArm = new THREE.Mesh(armGeo, bodyMat);
+            rightArm.position.set(0.35, 0.65, 0);
+            rightArm.name = 'rightArm';
+            group.add(rightArm);
+
+            // Legs
+            const legGeo = new THREE.CylinderGeometry(0.09, 0.08, 0.45, 6);
+
+            const leftLeg = new THREE.Mesh(legGeo, armorMat);
+            leftLeg.position.set(-0.16, 0.22, 0);
+            leftLeg.name = 'leftLeg';
+            group.add(leftLeg);
+
+            const rightLeg = new THREE.Mesh(legGeo, armorMat);
+            rightLeg.position.set(0.16, 0.22, 0);
+            rightLeg.name = 'rightLeg';
+            group.add(rightLeg);
+
+            group.scale.set(1.1, 1.1, 1.1);
+            return group;
+        }
+
+        function buildCannon() {
+            const group = new THREE.Group();
+
+            const baseGeo = new THREE.CylinderGeometry(1.3, 1.6, 0.8, 16);
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
+            const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+            group.add(baseMesh);
+
+            const barrelGeo = new THREE.CylinderGeometry(0.65, 0.75, 2.4, 16);
+            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.6, roughness: 0.3 });
+            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(0, 0.5, -0.8);
+            group.add(barrel);
+
+            group.position.set(0, 0.5, 0);
+            cannonMesh = group;
+            scene.add(cannonMesh);
+        }
+
+        function buildEnvironmentAndTrack(lvl) {
+            // Remove old track & castle
+            if (trackMesh) scene.remove(trackMesh);
+            if (castleGroup) scene.remove(castleGroup);
+            gateMeshes.forEach(g => scene.remove(g.group));
+            gateMeshes = [];
+            envPropsGroup.clear();
+
+            scene.background = new THREE.Color(lvl.biome.skyTop);
+            if (skyDomeMesh) skyDomeMesh.material.color.setHex(lvl.biome.skyTop);
+            scene.fog.color.setHex(lvl.biome.fogColor);
+
+            // 1. Build Main Track
+            const trackGeo = new THREE.BoxGeometry(14, 0.4, 150);
+            const trackMat = new THREE.MeshStandardMaterial({ color: lvl.biome.trackColor, roughness: 0.6 });
+            trackMesh = new THREE.Mesh(trackGeo, trackMat);
+            trackMesh.position.set(0, -0.2, -65);
+            scene.add(trackMesh);
+
+            // Side Borders
+            const borderGeo = new THREE.BoxGeometry(0.6, 1.2, 150);
+            const borderMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
+            const leftB = new THREE.Mesh(borderGeo, borderMat);
+            leftB.position.set(-7.3, 0.4, -65);
+            const rightB = new THREE.Mesh(borderGeo, borderMat);
+            rightB.position.set(7.3, 0.4, -65);
+            scene.add(leftB); scene.add(rightB);
+
+            // 2. Build Biome Environmental Props on sides
+            for (let z = 0; z > -130; z -= 15) {
+                const propL = createBiomeProp(lvl.biome.propType);
+                propL.position.set(-11 - Math.random() * 4, 0, z + (Math.random() - 0.5) * 5);
+                envPropsGroup.add(propL);
+
+                const propR = createBiomeProp(lvl.biome.propType);
+                propR.position.set(11 + Math.random() * 4, 0, z + (Math.random() - 0.5) * 5);
+                envPropsGroup.add(propR);
+            }
+
+            // 3. Build Castle at End (Z = -135)
+            castleGroup = new THREE.Group();
+            
+            const towerGeo = new THREE.CylinderGeometry(2.2, 2.8, 9, 8);
+            const towerMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
+
+            const leftTower = new THREE.Mesh(towerGeo, towerMat);
+            leftTower.position.set(-4.5, 4.5, -135);
+            const rightTower = new THREE.Mesh(towerGeo, towerMat);
+            rightTower.position.set(4.5, 4.5, -135);
+
+            const mainGeo = new THREE.BoxGeometry(7.5, 7, 5.5);
+            const mainMat = new THREE.MeshStandardMaterial({ color: lvl.biome.color, roughness: 0.3 });
+            const mainBuilding = new THREE.Mesh(mainGeo, mainMat);
+            mainBuilding.position.set(0, 3.5, -135);
+
+            castleGroup.add(leftTower);
+            castleGroup.add(rightTower);
+            castleGroup.add(mainBuilding);
+            scene.add(castleGroup);
+
+            // 4. Build Multiplier Gates
+            lvl.gates.forEach(gData => {
+                createGatePair(gData.z, gData.left, gData.right);
+            });
+        }
+
+        function createBiomeProp(type) {
+            const group = new THREE.Group();
+            if (type === 'trees') {
+                const trunkGeo = new THREE.CylinderGeometry(0.3, 0.4, 2, 6);
+                const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+                const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                trunk.position.y = 1;
+                group.add(trunk);
+
+                const leavesGeo = new THREE.ConeGeometry(1.8, 4, 6);
+                const leavesMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.7 });
+                const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+                leaves.position.y = 3.5;
+                group.add(leaves);
+            } else if (type === 'cacti') {
+                const geo = new THREE.CylinderGeometry(0.4, 0.4, 3.5, 8);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x15803d });
+                const cactus = new THREE.Mesh(geo, mat);
+                cactus.position.y = 1.75;
+                group.add(cactus);
+            } else {
+                const geo = new THREE.DodecahedronGeometry(1.5);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 });
+                const rock = new THREE.Mesh(geo, mat);
+                rock.position.y = 0.8;
+                group.add(rock);
+            }
+            return group;
+        }
+
+        function createGateCanvasTexture(text) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, 256, 256);
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 14;
+            ctx.strokeRect(8, 8, 240, 240);
+
+            ctx.fillStyle = '#60a5fa';
+            ctx.font = 'bold 95px Orbitron';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 128, 128);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createGatePair(zPos, leftData, rightData) {
+            const group = new THREE.Group();
+
+            const frameGeo = new THREE.BoxGeometry(6, 4.2, 0.4);
+            
+            const leftMat = new THREE.MeshBasicMaterial({ map: createGateCanvasTexture(leftData.text), transparent: true, opacity: 0.95 });
+            const leftMesh = new THREE.Mesh(frameGeo, leftMat);
+            leftMesh.position.set(-3.2, 2.1, zPos);
+
+            const rightMat = new THREE.MeshBasicMaterial({ map: createGateCanvasTexture(rightData.text), transparent: true, opacity: 0.95 });
+            const rightMesh = new THREE.Mesh(frameGeo, rightMat);
+            rightMesh.position.set(3.2, 2.1, zPos);
+
+            group.add(leftMesh);
+            group.add(rightMesh);
+            scene.add(group);
+
+            gateMeshes.push({ group, z: zPos, leftData, rightData, passedCooldowns: new Set() });
+        }
+
+        // ACCURATE MOBILE TOUCH & POINTER CONTROLS
+        function setupTouchControls() {
+            let isPointerDown = false;
+            let startPointerX = 0;
+
+            const canvas = document.getElementById('gameCanvas');
+
+            const onStart = (clientX) => {
+                if (!isPlaying || isGameOver) return;
+                isPointerDown = true;
+                startPointerX = clientX;
+            };
+
+            const onMove = (clientX) => {
+                if (!isPointerDown || !isPlaying) return;
+                const deltaX = clientX - startPointerX;
+                startPointerX = clientX;
+
+                // Scaled sensitivity based on viewport width
+                const sensitivity = 14 / window.innerWidth;
+                cannonTargetX += deltaX * sensitivity;
+                cannonTargetX = Math.max(-5.8, Math.min(5.8, cannonTargetX));
+            };
+
+            const onEnd = () => { isPointerDown = false; };
+
+            // Pointer Events (Unified Mouse & Touch)
+            canvas.addEventListener('pointerdown', (e) => onStart(e.clientX));
+            window.addEventListener('pointermove', (e) => onMove(e.clientX));
+            window.addEventListener('pointerup', onEnd);
+
+            // Direct Touch Events Backup
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 0) onStart(e.touches[0].clientX);
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0) onMove(e.touches[0].clientX);
+            }, { passive: true });
+
+            window.addEventListener('touchend', onEnd);
+
+            // Keyboard Controls
+            window.addEventListener('keydown', (e) => {
+                if (!isPlaying) return;
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') cannonTargetX = Math.max(-5.8, cannonTargetX - 0.6);
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') cannonTargetX = Math.min(5.8, cannonTargetX + 0.6);
+            });
+        }
+
+        function spawnMob(type, x, z) {
+            const isBlue = type === 'blue';
+            const mesh = createCharacterMesh(type);
+            mesh.position.set(x, 0, z);
+            scene.add(mesh);
+
+            const mobObj = {
+                mesh,
+                type,
+                x, z,
+                speed: isBlue ? (0.34 + state.upgrades.mobSpeed * 0.03) : 0.25,
+                power: isBlue ? (10 + state.upgrades.mobPower * 2) : 10,
+                id: Math.random(),
+                animTime: Math.random() * 10
+            };
+
+            if (isBlue) blueMobs.push(mobObj);
+            else redMobs.push(mobObj);
+        }
+
+        function update3DGamePhysics(delta) {
+            if (!isPlaying || isGameOver) return;
+
+            // Smooth Lerp Cannon Movement
+            cannonX += (cannonTargetX - cannonX) * 0.25;
+            if (cannonMesh) cannonMesh.position.x = cannonX;
+
+            // Drifting Clouds
+            cloudsGroup.children.forEach(c => {
+                c.position.x += delta * 2;
+                if (c.position.x > 80) c.position.x = -80;
+            });
+
+            // 1. Move Blue Mobs Forward (-Z) with Procedural Run Animation
+            for (let i = blueMobs.length - 1; i >= 0; i--) {
+                const mob = blueMobs[i];
+                mob.z -= mob.speed;
+                mob.mesh.position.z = mob.z;
+
+                // Animate Running Limbs
+                mob.animTime += delta * 15;
+                const swing = Math.sin(mob.animTime) * 0.6;
+                const lArm = mob.mesh.getObjectByName('leftArm');
+                const rArm = mob.mesh.getObjectByName('rightArm');
+                const lLeg = mob.mesh.getObjectByName('leftLeg');
+                const rLeg = mob.mesh.getObjectByName('rightLeg');
+
+                if (lArm && rArm) { lArm.rotation.x = swing; rArm.rotation.x = -swing; }
+                if (lLeg && rLeg) { lLeg.rotation.x = -swing; rLeg.rotation.x = swing; }
+
+                // Gate Multiplication Check
+                gateMeshes.forEach(g => {
+                    if (Math.abs(mob.z - g.z) < 0.6 && !g.passedCooldowns.has(mob.id)) {
+                        g.passedCooldowns.add(mob.id);
+                        sounds.playGateChime();
+
+                        const gateData = mob.mesh.position.x < 0 ? g.leftData : g.rightData;
+                        let extraCount = 0;
+                        if (gateData.type === 'x') extraCount = Math.floor(gateData.val - 1);
+                        else if (gateData.type === '+') extraCount = gateData.val;
+
+                        for (let k = 0; k < extraCount; k++) {
+                            const rx = mob.mesh.position.x + (Math.random() - 0.5) * 1.5;
+                            spawnMob('blue', Math.max(-6, Math.min(6, rx)), mob.z - 0.5);
+                        }
+                    }
+                });
+
+                // Attack Enemy Castle (Z <= -132)
+                if (mob.z <= -132) {
+                    currentCastleHp -= mob.power;
+                    coinsEarnedInRun += 2;
+                    mobsKilled++;
+
+                    scene.remove(mob.mesh);
+                    blueMobs.splice(i, 1);
+
+                    // Update HUD Castle HP Bar
+                    const percent = Math.max(0, (currentCastleHp / activeLevel.castleHp) * 100);
+                    document.getElementById('hud-castle-hp-bar').style.width = `${percent}%`;
+                    document.getElementById('hud-castle-hp-text').innerText = `${Math.max(0, Math.round(currentCastleHp))} / ${activeLevel.castleHp} HP`;
+                    document.getElementById('hud-coins').innerText = state.coins + coinsEarnedInRun;
+
+                    // Victory Condition
+                    if (currentCastleHp <= 0) {
+                        endGame(true);
+                        return;
+                    }
+                }
+            }
+
+            // 2. Move Red Mobs Backward (+Z)
+            for (let i = redMobs.length - 1; i >= 0; i--) {
+                const mob = redMobs[i];
+                mob.z += mob.speed;
+                mob.mesh.position.z = mob.z;
+
+                // Animate Red Limbs
+                mob.animTime += delta * 12;
+                const swing = Math.sin(mob.animTime) * 0.5;
+                const lArm = mob.mesh.getObjectByName('leftArm');
+                const rArm = mob.mesh.getObjectByName('rightArm');
+                if (lArm && rArm) { lArm.rotation.x = swing; rArm.rotation.x = -swing; }
+
+                // Red mob reaches player Cannon -> Game Over
+                if (mob.z >= -1) {
+                    endGame(false);
+                    return;
+                }
+            }
+
+            // 3. Mob vs Mob Clash Collisions
+            for (let i = blueMobs.length - 1; i >= 0; i--) {
+                const bMob = blueMobs[i];
+                for (let j = redMobs.length - 1; j >= 0; j--) {
+                    const rMob = redMobs[j];
+                    const dist = Math.hypot(bMob.mesh.position.x - rMob.mesh.position.x, bMob.z - rMob.z);
+                    if (dist < 0.9) {
+                        sounds.playClash();
+                        mobsKilled++;
+
+                        scene.remove(bMob.mesh);
+                        scene.remove(rMob.mesh);
+                        blueMobs.splice(i, 1);
+                        redMobs.splice(j, 1);
+                        break;
+                    }
+                }
+            }
+
+            // 4. Enemy Spawner AI
+            enemySpawnTimer++;
+            if (enemySpawnTimer >= activeLevel.spawnRate) {
+                enemySpawnTimer = 0;
+                const rx = (Math.random() - 0.5) * 10;
+                spawnMob('red', rx, -130);
+            }
+
+            // 5. Player Cannon Auto-Shoot
+            shootTimer++;
+            const fireInterval = Math.max(7, 22 - state.upgrades.fireRate * 3);
+            if (shootTimer >= fireInterval) {
+                shootTimer = 0;
+                spawnMob('blue', cannonX, -1.5);
+                sounds.playShoot();
+            }
+        }
+
+        function render3DLoop() {
+            const delta = clock.getDelta();
+            update3DGamePhysics(delta);
+            renderer.render(scene, camera);
+            requestAnimationFrame(render3DLoop);
+        }
+
+        function startLevel(lvlIndex) {
+            sounds.init();
+            activeLevel = getLevelConfig(lvlIndex);
+
+            // Clear entities
+            blueMobs.forEach(m => scene.remove(m.mesh));
+            redMobs.forEach(m => scene.remove(m.mesh));
+            blueMobs = []; redMobs = [];
+
+            currentCastleHp = activeLevel.castleHp;
+            coinsEarnedInRun = 0;
+            mobsKilled = 0;
+            cannonX = 0; cannonTargetX = 0;
+            if (cannonMesh) cannonMesh.position.x = 0;
+
+            buildEnvironmentAndTrack(activeLevel);
+
+            isPlaying = true;
+            isGameOver = false;
+
+            // Update HUD
+            document.getElementById('hud-level-tag').innerText = `POZIOM ${activeLevel.id}`;
+            document.getElementById('hud-level-name').innerText = activeLevel.name;
+            document.getElementById('hud-castle-hp-bar').style.width = '100%';
+            document.getElementById('hud-castle-hp-text').innerText = `${activeLevel.castleHp} / ${activeLevel.castleHp} HP`;
+            document.getElementById('hud-coins').innerText = state.coins;
+
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('level-modal').classList.add('hidden');
+            document.getElementById('result-modal').classList.add('hidden');
+            document.getElementById('hud-overlay').classList.remove('hidden');
+            document.getElementById('hud-overlay').classList.add('flex');
+        }
+
+        function endGame(isVictory) {
+            isPlaying = false;
+            isGameOver = true;
+
+            state.coins += coinsEarnedInRun;
+            if (isVictory && activeLevel.id === state.maxLevel && state.maxLevel < 1000) {
+                state.maxLevel++;
+            }
+            saveState();
+
+            if (isVictory) sounds.playVictory();
+
+            const modal = document.getElementById('result-modal');
+            const cardBorder = document.getElementById('result-card-border');
+            const badge = document.getElementById('result-badge');
+            const title = document.getElementById('result-title');
+            const subtitle = document.getElementById('result-subtitle');
+
+            if (isVictory) {
+                cardBorder.className = "max-w-md w-full bg-slate-900 border-2 border-emerald-500/60 rounded-3xl p-6 text-center shadow-2xl relative my-auto";
+                badge.className = "inline-block px-4 py-1.5 rounded-full font-orbitron font-black bg-emerald-500 text-slate-950 text-sm tracking-widest mb-3 animate-bounce";
+                badge.innerText = "ZWYCIĘSTWO!";
+                title.innerText = "CYTADELA ZNISZCZONA!";
+                subtitle.innerText = `Opanowałeś poziom ${activeLevel.id}: ${activeLevel.name}!`;
+            } else {
+                cardBorder.className = "max-w-md w-full bg-slate-900 border-2 border-rose-500/60 rounded-3xl p-6 text-center shadow-2xl relative my-auto";
+                badge.className = "inline-block px-4 py-1.5 rounded-full font-orbitron font-black bg-rose-500 text-white text-sm tracking-widest mb-3";
+                badge.innerText = "PORAŻKA!";
+                title.innerText = "BAZA PRZEJĘTA!";
+                subtitle.innerText = "Czerwona armia przedarła się przez Twoją obronę!";
+            }
+
+            document.getElementById('result-coins').innerHTML = `<i class="fa-solid fa-coins text-sm"></i> +${coinsEarnedInRun}`;
+            document.getElementById('result-mobs').innerText = mobsKilled;
+
+            const actionBtn = document.getElementById('btn-result-action');
+            actionBtn.innerText = isVictory ? (state.maxLevel > activeLevel.id ? "NASTĘPNY POZIOM" : "ZAGRAJ PONOWNIE") : "SPRÓBUJ PONOWNIE";
+            actionBtn.onclick = () => {
+                const nextLvl = isVictory && activeLevel.id < 1000 ? activeLevel.id + 1 : activeLevel.id;
+                startLevel(nextLvl);
+            };
+
+            document.getElementById('hud-overlay').classList.add('hidden');
+            modal.classList.remove('hidden');
+            updateMenuUI();
+        }
+
+        function updateMenuUI() {
+            document.getElementById('menu-max-level').innerText = `POZIOM ${state.maxLevel}`;
+            document.getElementById('menu-total-coins').innerHTML = `<i class="fa-solid fa-coins text-sm"></i> ${state.coins}`;
+            document.getElementById('btn-play-lvl-num').innerText = state.maxLevel;
+            updateCyberKontoHeader();
+        }
+
+        function updateCyberKontoHeader() {
+            const usernameEl = document.getElementById('account-username');
+            const statusBadgeEl = document.getElementById('account-status-badge');
+            const iconEl = document.getElementById('account-avatar-icon');
+            const badgeEl = document.getElementById('account-avatar-badge');
+            const btnTextEl = document.getElementById('btn-account-text');
+
+            if (cyberAccount) {
+                usernameEl.innerText = cyberAccount.username;
+                statusBadgeEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span><span class="text-emerald-400 font-semibold">Zalogowano w chmurze</span>`;
+                iconEl.className = `fa-solid ${cyberAccount.avatarIcon || 'fa-user-ninja'}`;
+                badgeEl.style.background = `linear-gradient(135deg, ${cyberAccount.avatarColor || '#3b82f6'}, #1e1b4b)`;
+                btnTextEl.innerText = "PROFIL";
+
+                state.coins = cyberAccount.coins || state.coins;
+                state.maxLevel = cyberAccount.maxLevel || state.maxLevel;
+            } else {
+                usernameEl.innerText = "Gość Cyber Konto";
+                statusBadgeEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span><span>Konto Lokalne</span>`;
+                iconEl.className = "fa-solid fa-user-shield";
+                badgeEl.style.background = "linear-gradient(135deg, #3b82f6, #4f46e5)";
+                btnTextEl.innerText = "CYBER KONTO";
+            }
+        }
+
+        let currentPage = 1;
+
+        function renderLevelSelectModal(page = 1) {
+            currentPage = page;
+            const container = document.getElementById('level-list');
+            container.innerHTML = '';
+
+            const itemsPerPage = 10;
+            const startLvl = (page - 1) * itemsPerPage + 1;
+            const endLvl = Math.min(1000, startLvl + itemsPerPage - 1);
+
+            for (let i = startLvl; i <= endLvl; i++) {
+                const lvlCfg = getLevelConfig(i);
+                const isUnlocked = i <= state.maxLevel;
+
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-2xl border flex items-center justify-between gap-3 ${isUnlocked ? 'bg-slate-800/90 border-blue-500/50 cursor-pointer hover:border-blue-400' : 'bg-slate-950/60 border-slate-800 opacity-60'}`;
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center font-orbitron font-black text-xs ${isUnlocked ? 'text-blue-400' : 'text-slate-600'}">
+                            ${i}
+                        </div>
+                        <div>
+                            <div class="font-orbitron font-bold text-xs text-white">${lvlCfg.name}</div>
+                            <div class="text-[10px] text-slate-400">HP Cytadeli: ${lvlCfg.castleHp}</div>
+                        </div>
+                    </div>
+                    <div>
+                        ${isUnlocked ? '<button class="px-3 py-1 bg-blue-500 text-slate-950 font-orbitron font-bold text-xs rounded-xl">GRAJ</button>' : '<i class="fa-solid fa-lock text-slate-600 mr-2"></i>'}
+                    </div>
+                `;
+
+                if (isUnlocked) {
+                    card.onclick = () => startLevel(i);
+                }
+                container.appendChild(card);
+            }
+
+            document.getElementById('level-modal').classList.remove('hidden');
+        }
+
+        function renderUpgradesModal() {
+            document.getElementById('shop-coins-display').innerHTML = `<i class="fa-solid fa-coins"></i> ${state.coins}`;
+            const container = document.getElementById('upgrades-list');
+            container.innerHTML = '';
+
+            const upgradeDef = [
+                { id: 'fireRate', name: 'Szybkostrzelność', desc: '+15% częstotliwości strzałów', baseCost: 60, icon: 'fa-bolt' },
+                { id: 'mobSpeed', name: 'Szybkość Biegaczy', desc: '+10% szybkości poruszania się', baseCost: 80, icon: 'fa-gauge-high' },
+                { id: 'mobPower', name: 'Siła Ataku Bazy', desc: '+20% obrażeń zadawanych cytadeli', baseCost: 100, icon: 'fa-hand-fist' }
+            ];
+
+            upgradeDef.forEach(item => {
+                const lvl = state.upgrades[item.id] || 0;
+                const cost = Math.round(item.baseCost * Math.pow(1.8, lvl));
+                const isMax = lvl >= 5;
+
+                const card = document.createElement('div');
+                card.className = "p-3 bg-slate-800/90 rounded-2xl border border-slate-700 flex items-center justify-between gap-3";
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-amber-400 text-lg">
+                            <i class="fa-solid ${item.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="font-orbitron font-bold text-xs text-white">${item.name} <span class="text-amber-400">(LVL ${lvl}/5)</span></div>
+                            <div class="text-[11px] text-slate-400">${item.desc}</div>
+                        </div>
+                    </div>
+                    <button class="btn-buy-upg px-3 py-2 rounded-xl text-xs font-orbitron font-bold shrink-0 ${isMax ? 'bg-slate-700 text-slate-500' : (state.coins >= cost ? 'bg-amber-500 text-slate-950 hover:bg-amber-400' : 'bg-slate-700 text-slate-400')}" ${isMax || state.coins < cost ? 'disabled' : ''}>
+                        ${isMax ? 'MAX' : `<i class="fa-solid fa-coins"></i> ${cost}`}
+                    </button>
+                `;
+
+                if (!isMax && state.coins >= cost) {
+                    card.querySelector('.btn-buy-upg').onclick = () => {
+                        state.coins -= cost;
+                        state.upgrades[item.id] = lvl + 1;
+                        saveState();
+                        renderUpgradesModal();
+                        updateMenuUI();
+                    };
+                }
+
+                container.appendChild(card);
+            });
+
+            document.getElementById('upgrades-modal').classList.remove('hidden');
+        }
+
+        async function showLeaderboardModal() {
+            document.getElementById('cyber-profile-modal').classList.remove('hidden');
+            if (cyberAccount) {
+                document.getElementById('profile-card-username').innerText = cyberAccount.username;
+                document.getElementById('profile-card-icon').className = `fa-solid ${cyberAccount.avatarIcon || 'fa-user-ninja'}`;
+            }
+
+            const listEl = document.getElementById('leaderboard-list');
+            listEl.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-orbitron"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Ładowanie chmury...</div>`;
+
+            if (window.CyberKontoCloud) {
+                const players = await window.CyberKontoCloud.fetchLeaderboard();
+                if (players.length === 0) {
+                    listEl.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">Brak zapisanych graczy. Bądź pierwszy!</div>`;
+                    return;
+                }
+                listEl.innerHTML = '';
+                players.forEach((p, idx) => {
+                    const isMe = cyberAccount && cyberAccount.username.toLowerCase() === p.username.toLowerCase();
+                    const rank = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                    const item = document.createElement('div');
+                    item.className = `p-2.5 rounded-xl border flex items-center justify-between text-xs ${isMe ? 'bg-blue-950/80 border-blue-500' : 'bg-slate-950/80 border-slate-800'}`;
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2.5 truncate">
+                            <span class="font-orbitron font-bold w-6 text-center text-amber-400 text-sm">${rank}</span>
+                            <div class="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-sm shrink-0" style="color:${p.avatarColor || '#3b82f6'}">
+                                <i class="fa-solid ${p.avatarIcon || 'fa-user-ninja'}"></i>
+                            </div>
+                            <span class="font-orbitron font-bold text-white truncate">${p.username}</span>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="font-orbitron font-bold text-blue-400">POZIOM ${p.maxLevel || 1}</div>
+                            <div class="text-[10px] text-amber-400"><i class="fa-solid fa-coins"></i> ${p.coins || 0}</div>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                });
+            }
+        }
+
+        let selectedAvatar = { icon: 'fa-user-ninja', color: '#3b82f6' };
+
+        window.initCyberKontoUI = function() {
+            updateMenuUI();
+
+            document.querySelectorAll('.avatar-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.avatar-option').forEach(b => {
+                        b.classList.remove('border-2', 'border-blue-500');
+                        b.classList.add('border-slate-800');
+                    });
+                    btn.classList.remove('border-slate-800');
+                    btn.classList.add('border-2', 'border-blue-500');
+                    selectedAvatar = { icon: btn.dataset.icon, color: btn.dataset.color };
+                });
+            });
+
+            // Level Selector Navigation
+            document.getElementById('btn-lvl-prev-page').onclick = () => {
+                if (currentPage > 1) renderLevelSelectModal(currentPage - 1);
+            };
+            document.getElementById('btn-lvl-next-page').onclick = () => {
+                if (currentPage < 100) renderLevelSelectModal(currentPage + 1);
+            };
+            document.getElementById('btn-jump-level').onclick = () => {
+                const targetLvl = parseInt(document.getElementById('input-jump-level').value);
+                if (targetLvl >= 1 && targetLvl <= 1000) {
+                    const page = Math.ceil(targetLvl / 10);
+                    renderLevelSelectModal(page);
+                }
+            };
+
+            // Nick Check
+            const regNick = document.getElementById('reg-username');
+            const nickInd = document.getElementById('nick-check-indicator');
+            let timer = null;
+            regNick.addEventListener('input', () => {
+                const val = regNick.value.trim();
+                if (val.length < 3) {
+                    nickInd.innerHTML = `<span class="text-slate-400"><i class="fa-solid fa-circle-info"></i> Minimum 3 znaki</span>`;
+                    return;
+                }
+                nickInd.innerHTML = `<span class="text-blue-400"><i class="fa-solid fa-spinner fa-spin"></i> Sprawdzanie dostępności...</span>`;
+                clearTimeout(timer);
+                timer = setTimeout(async () => {
+                    if (window.CyberKontoCloud) {
+                        const exists = await window.CyberKontoCloud.checkNickExists(val);
+                        if (exists) nickInd.innerHTML = `<span class="text-rose-400 font-bold"><i class="fa-solid fa-xmark"></i> Nick zajęty!</span>`;
+                        else nickInd.innerHTML = `<span class="text-emerald-400 font-bold"><i class="fa-solid fa-check"></i> Nick wolny!</span>`;
+                    }
+                }, 400);
+            });
+
+            // Auth Forms & Modals
+            document.getElementById('tab-login').onclick = () => {
+                document.getElementById('form-login').classList.remove('hidden');
+                document.getElementById('form-register').classList.add('hidden');
+            };
+            document.getElementById('tab-register').onclick = () => {
+                document.getElementById('form-register').classList.remove('hidden');
+                document.getElementById('form-login').classList.add('hidden');
+            };
+
+            document.getElementById('btn-open-account-modal').onclick = () => {
+                if (cyberAccount) showLeaderboardModal();
+                else document.getElementById('cyber-auth-modal').classList.remove('hidden');
+            };
+            document.getElementById('btn-close-auth-modal').onclick = () => document.getElementById('cyber-auth-modal').classList.add('hidden');
+            document.getElementById('btn-close-profile-modal').onclick = () => document.getElementById('cyber-profile-modal').classList.add('hidden');
+
+            document.getElementById('form-register').onsubmit = async (e) => {
+                e.preventDefault();
+                const u = document.getElementById('reg-username').value.trim();
+                const p = document.getElementById('reg-password').value;
+                if (window.CyberKontoCloud) {
+                    cyberAccount = await window.CyberKontoCloud.registerCyberAccount(u, p, selectedAvatar);
+                    updateMenuUI();
+                    document.getElementById('cyber-auth-modal').classList.add('hidden');
+                }
+            };
+
+            document.getElementById('form-login').onsubmit = async (e) => {
+                e.preventDefault();
+                const u = document.getElementById('login-username').value.trim();
+                const p = document.getElementById('login-password').value;
+                if (window.CyberKontoCloud) {
+                    const res = await window.CyberKontoCloud.loginCyberAccount(u, p);
+                    if (res.success) {
+                        cyberAccount = res.account;
+                        updateMenuUI();
+                        document.getElementById('cyber-auth-modal').classList.add('hidden');
+                    } else {
+                        const status = document.getElementById('auth-status-msg');
+                        status.className = "mb-3 p-2.5 rounded-xl text-xs font-semibold text-center border bg-rose-500/20 border-rose-500/50 text-rose-300";
+                        status.innerText = res.reason;
+                        status.classList.remove('hidden');
+                    }
+                }
+            };
+
+            document.getElementById('btn-logout').onclick = () => {
+                localStorage.removeItem('cyber_3d_active_acc');
+                cyberAccount = null;
+                updateMenuUI();
+                document.getElementById('cyber-profile-modal').classList.add('hidden');
+            };
+        };
+
+        // EVENT LISTENERS FOR MENU BUTTONS
+        document.getElementById('btn-play-level').onclick = () => startLevel(state.maxLevel);
+        document.getElementById('btn-select-level').onclick = () => renderLevelSelectModal(Math.ceil(state.maxLevel / 10));
+        document.getElementById('btn-close-level-modal').onclick = () => document.getElementById('level-modal').classList.add('hidden');
+
+        document.getElementById('btn-upgrades').onclick = renderUpgradesModal;
+        document.getElementById('btn-close-upgrades-modal').onclick = () => document.getElementById('upgrades-modal').classList.add('hidden');
+
+        document.getElementById('btn-pause-game').onclick = () => {
+            isPlaying = false;
+            document.getElementById('hud-overlay').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+        };
+
+        document.getElementById('btn-leaderboard').onclick = showLeaderboardModal;
+
+        // INIT GAME ON WINDOW LOAD
+        window.onload = () => {
+            init3DScene();
+            if (window.initCyberKontoUI) window.initCyberKontoUI();
+            requestAnimationFrame(render3DLoop);
+        };
+    </script>
+</body>
+</html>
